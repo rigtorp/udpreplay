@@ -26,4 +26,4 @@ $ udpreplay -i eth0 example.pcap
 ## About
 
 This project was created by [Erik Rigtorp](http://rigtorp.se)
-<[erik@rigtorp.se](mailto:erik@rigtorp.se).
+<[erik@rigtorp.se](mailto:erik@rigtorp.se)>.
