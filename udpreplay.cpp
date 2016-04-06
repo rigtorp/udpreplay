@@ -30,6 +30,14 @@ SOFTWARE.
 #include <unistd.h>
 
 int main(int argc, char *argv[]) {
+  static const char usage[] =
+      " [-i iface] [-l] [-s speed] [-t ttl] pcap\n"
+      "\n"
+      "  -i iface    interface to send packets through\n"
+      "  -l          enable loopback\n"
+      "  -s speed    replay speed relative to pcap timestamps\n"
+      "  -t ttl      packet ttl";
+
   int ifindex = 0;
   int loopback = 0;
   double speed = 1;
@@ -55,14 +63,12 @@ int main(int argc, char *argv[]) {
       ttl = std::stoi(optarg);
       break;
     default:
-      std::cerr << "usage: " << argv[0]
-                << " [-i iface] [-l] [-s speed] [-t ttl] pcap" << std::endl;
+      std::cerr << "usage: " << argv[0] << usage << std::endl;
       return 1;
     }
   }
   if (optind >= argc) {
-    std::cerr << "usage: " << argv[0]
-              << " [-i iface] [-l] [-s speed] [-t ttl] pcap" << std::endl;
+    std::cerr << "usage: " << argv[0] << usage << std::endl;
     return 1;
   }
 
