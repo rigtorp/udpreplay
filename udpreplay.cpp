@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
 
   int fd = socket(AF_INET, SOCK_DGRAM, 0);
   if (fd == -1) {
-    std::cerr << strerror(errno) << std::endl;
+    std::cerr << "socket: " << strerror(errno) << std::endl;
     return 1;
   }
 
@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
     mreqn.imr_ifindex = ifindex;
     if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF, &mreqn, sizeof(mreqn)) ==
         -1) {
-      std::cerr << "setsockopt:" << strerror(errno) << std::endl;
+      std::cerr << "setsockopt: " << strerror(errno) << std::endl;
       return 1;
     }
   }
@@ -86,14 +86,14 @@ int main(int argc, char *argv[]) {
   if (loopback != 0) {
     if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP, &loopback,
                    sizeof(loopback)) == -1) {
-      std::cerr << "setsockopt:" << strerror(errno) << std::endl;
+      std::cerr << "setsockopt: " << strerror(errno) << std::endl;
       return 1;
     }
   }
 
   if (ttl != -1) {
     if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl)) == -1) {
-      std::cerr << "setsockopt:" << strerror(errno) << std::endl;
+      std::cerr << "setsockopt: " << strerror(errno) << std::endl;
       return 1;
     }
   }
