@@ -30,7 +30,7 @@ Building:
 
 ```
 $ cd udpreplay
-$ make build
+$ mkdir build
 $ cd build
 $ cmake ..
 $ make
