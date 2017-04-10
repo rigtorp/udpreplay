@@ -113,7 +113,7 @@ int main(int argc, char *argv[]) {
 
   pcap_pkthdr header;
   const u_char *p;
-  timeval tv = {0, 0};
+  timeval tv_previous = {0, 0};
   while ((p = pcap_next(handle, &header))) {
     if (header.len != header.caplen) {
       continue;
@@ -132,11 +132,12 @@ int main(int argc, char *argv[]) {
     auto udp = reinterpret_cast<const udphdr *>(p + sizeof(ether_header) +
                                                 ip->ihl * 4);
 
-    if (tv.tv_sec == 0) {
-      tv = header.ts;
+    if (tv_previous.tv_sec == 0) {
+      tv_previous = header.ts;
     }
     timeval diff;
-    timersub(&header.ts, &tv, &diff);
+    timersub(&header.ts, &tv_previous, &diff);
+    tv_previous = header.ts;
     usleep((diff.tv_sec * 1000000 + diff.tv_usec) * speed);
 
     ssize_t len = ntohs(udp->len) - 8;
