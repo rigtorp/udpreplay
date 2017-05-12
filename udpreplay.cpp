@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2016 Erik Rigtorp <erik@rigtorp.se>
+Copyright (c) 2017 Erik Rigtorp <erik@rigtorp.se>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -137,6 +137,7 @@ int main(int argc, char *argv[]) {
     }
     timeval diff;
     timersub(&header.ts, &tv, &diff);
+    tv = header.ts;
     usleep((diff.tv_sec * 1000000 + diff.tv_usec) * speed);
 
     ssize_t len = ntohs(udp->len) - 8;
