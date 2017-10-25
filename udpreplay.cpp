@@ -36,15 +36,17 @@ int main(int argc, char *argv[]) {
       "  -i iface    interface to send packets through\n"
       "  -l          enable loopback\n"
       "  -s speed    replay speed relative to pcap timestamps\n"
-      "  -t ttl      packet ttl";
+      "  -t ttl      packet ttl\n"
+      "  -b          enable broadcast (SO_BROADCAST)";
 
   int ifindex = 0;
   int loopback = 0;
   double speed = 1;
   int ttl = -1;
+  int broadcast = 0;
 
   int opt;
-  while ((opt = getopt(argc, argv, "i:ls:t:")) != -1) {
+  while ((opt = getopt(argc, argv, "i:bls:t:")) != -1) {
     switch (opt) {
     case 'i':
       ifindex = if_nametoindex(optarg);
@@ -61,6 +63,9 @@ int main(int argc, char *argv[]) {
       break;
     case 't':
       ttl = std::stoi(optarg);
+      break;
+    case 'b':
+      broadcast = 1;
       break;
     default:
       std::cerr << "usage: " << argv[0] << usage << std::endl;
@@ -92,6 +97,14 @@ int main(int argc, char *argv[]) {
   if (loopback != 0) {
     if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP, &loopback,
                    sizeof(loopback)) == -1) {
+      std::cerr << "setsockopt: " << strerror(errno) << std::endl;
+      return 1;
+    }
+  }
+
+  if (broadcast != 0) {
+    if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &broadcast, 
+                   sizeof(broadcast)) == -1) {
       std::cerr << "setsockopt: " << strerror(errno) << std::endl;
       return 1;
     }
