@@ -13,6 +13,7 @@ udpreplay [-i iface] [-l] [-s speed] [-t ttl] pcap
   -l          enable loopback
   -s speed    replay speed relative to pcap timestamps
   -t ttl      packet ttl
+  -b          enable broadcast (SO_BROADCAST)
 ```
 
 ## Example
