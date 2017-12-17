@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (broadcast != 0) {
-    if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &broadcast, 
+    if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &broadcast,
                    sizeof(broadcast)) == -1) {
       std::cerr << "setsockopt: " << strerror(errno) << std::endl;
       return 1;
@@ -151,7 +151,9 @@ int main(int argc, char *argv[]) {
     timeval diff;
     timersub(&header.ts, &tv, &diff);
     tv = header.ts;
-    usleep((diff.tv_sec * 1000000 + diff.tv_usec) * speed);
+    const double delay =
+        std::max(0.0, (diff.tv_sec * 1000000 + diff.tv_usec) * speed);
+    usleep(delay);
 
     ssize_t len = ntohs(udp->len) - 8;
     const u_char *d = &p[sizeof(ether_header) + ip->ihl * 4 + sizeof(udphdr)];
