@@ -124,6 +124,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  const std::uint16_t ETHERTYPE_802_1Q = 0x8100;
   pcap_pkthdr header;
   const u_char *p;
   timeval tv = {0, 0};
@@ -132,6 +133,12 @@ int main(int argc, char *argv[]) {
       continue;
     }
     auto eth = reinterpret_cast<const ether_header *>(p);
+    
+    // jump over and ignore vlan tag 
+    if (ntohs(eth->ether_type) == ETHERTYPE_802_1Q) {
+       p += 4;
+       eth = reinterpret_cast<const ether_header *>(p);
+    }
     if (ntohs(eth->ether_type) != ETHERTYPE_IP) {
       continue;
     }
