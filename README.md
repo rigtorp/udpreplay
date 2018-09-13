@@ -1,5 +1,8 @@
 # udpreplay
 
+[![Build Status](https://travis-ci.org/rigtorp/udpreplay.svg?branch=master)](https://travis-ci.org/rigtorp/udpreplay)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/rigtorp/udpreplay/master/LICENSE)
+
 *udpreplay* is a lightweight alternative
 to [tcpreplay](http://tcpreplay.appneta.com/) for replaying UDP
 unicast and multicast streams from a pcap file.
