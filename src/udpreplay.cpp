@@ -36,6 +36,7 @@ int main(int argc, char *argv[]) {
       "  -i iface    interface to send packets through\n"
       "  -l          enable loopback\n"
       "  -c millisec constant milliseconds between packets\n"
+      "  -r repeat   number of times to loop data\n"
       "  -s speed    replay speed relative to pcap timestamps\n"
       "  -t ttl      packet ttl\n"
       "  -b          enable broadcast (SO_BROADCAST)";
@@ -44,12 +45,13 @@ int main(int argc, char *argv[]) {
   int loopback = 0;
   double speed = 1;
   bool useInterval = false;
-  int interval = 0;
+  int interval = 1000; // 1000ms = 1 sec
+  int repeat = 1; // Just loop once
   int ttl = -1;
   int broadcast = 0;
 
   int opt;
-  while ((opt = getopt(argc, argv, "i:blsc:t:")) != -1) {
+  while ((opt = getopt(argc, argv, "i:bls:c:r:t:")) != -1) {
     switch (opt) {
     case 'i':
       ifindex = if_nametoindex(optarg);
@@ -67,6 +69,9 @@ int main(int argc, char *argv[]) {
     case 'c':
       interval = std::stoi(optarg);
       useInterval = true;
+      break;
+    case 'r':
+      repeat = std::stoi(optarg);
       break;
     case 't':
       ttl = std::stoi(optarg);
@@ -125,7 +130,11 @@ int main(int argc, char *argv[]) {
   }
 
   char errbuf[PCAP_ERRBUF_SIZE];
+
+  for (int i = 0; i < repeat; i++) { // Begin repeat loop
+
   pcap_t *handle = pcap_open_offline(argv[optind], errbuf);
+
   if (handle == nullptr) {
     std::cerr << "pcap_open: " << errbuf << std::endl;
     return 1;
@@ -181,6 +190,7 @@ int main(int argc, char *argv[]) {
       return 1;
     }
   }
+  } // end for loop for repeat
 
   return 0;
 }
