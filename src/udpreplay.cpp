@@ -31,7 +31,7 @@ SOFTWARE.
 
 int main(int argc, char *argv[]) {
   static const char usage[] =
-      " [-i iface] [-l] [-s speed] [-c millisec] [-t ttl] pcap\n"
+      " [-i iface] [-l] [-s speed] [-c millisec] [-r repeat] [-t ttl] pcap\n"
       "\n"
       "  -i iface    interface to send packets through\n"
       "  -l          enable loopback\n"
