@@ -32,24 +32,30 @@ $ udpreplay -i eth0 example.pcap
 *udpreplay* requires [CMake](https://cmake.org/) 3.2 or higher 
 and libpcap-dev to build and install.
 
+Building on Debian/Ubuntu:
+
 ```
 sudo apt install cmake libpcap-dev
+cd udpreplay
+mkdir build && cd build
+cmake ..
+make
 ```
 
-Building:
+Building on RHEL/CentOS:
 
 ```
-$ cd udpreplay
-$ mkdir build
-$ cd build
-$ cmake ..
-$ make
+sudo yum install cmake3 libpcap-devel
+cd udpreplay
+mkdir build && cd build
+cmake3 ..
+make
 ```
 
 Installing:
 
 ```
-$ make install
+$ sudo make install
 ```
 
 ## About
