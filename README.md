@@ -10,10 +10,12 @@ unicast and multicast streams from a pcap file.
 ## Usage
 
 ```
-udpreplay [-i iface] [-l] [-s speed] [-t ttl] pcap
+usage: udpreplay [-i iface] [-l] [-s speed] [-c millisec] [-r repeat] [-t ttl] pcap
 
   -i iface    interface to send packets through
   -l          enable loopback
+  -c millisec constant milliseconds between packets
+  -r repeat   number of times to loop data
   -s speed    replay speed relative to pcap timestamps
   -t ttl      packet ttl
   -b          enable broadcast (SO_BROADCAST)
@@ -30,24 +32,30 @@ $ udpreplay -i eth0 example.pcap
 *udpreplay* requires [CMake](https://cmake.org/) 3.2 or higher 
 and libpcap-dev to build and install.
 
+Building on Debian/Ubuntu:
+
 ```
 sudo apt install cmake libpcap-dev
+cd udpreplay
+mkdir build && cd build
+cmake ..
+make
 ```
 
-Building:
+Building on RHEL/CentOS:
 
 ```
-$ cd udpreplay
-$ mkdir build
-$ cd build
-$ cmake ..
-$ make
+sudo yum install cmake3 libpcap-devel
+cd udpreplay
+mkdir build && cd build
+cmake3 ..
+make
 ```
 
 Installing:
 
 ```
-$ make install
+$ sudo make install
 ```
 
 ## About

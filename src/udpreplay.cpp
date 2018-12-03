@@ -31,10 +31,12 @@ SOFTWARE.
 
 int main(int argc, char *argv[]) {
   static const char usage[] =
-      " [-i iface] [-l] [-s speed] [-t ttl] pcap\n"
+      " [-i iface] [-l] [-s speed] [-c millisec] [-r repeat] [-t ttl] pcap\n"
       "\n"
       "  -i iface    interface to send packets through\n"
       "  -l          enable loopback\n"
+      "  -c millisec constant milliseconds between packets\n"
+      "  -r repeat   number of times to loop data\n"
       "  -s speed    replay speed relative to pcap timestamps\n"
       "  -t ttl      packet ttl\n"
       "  -b          enable broadcast (SO_BROADCAST)";
@@ -42,11 +44,14 @@ int main(int argc, char *argv[]) {
   int ifindex = 0;
   int loopback = 0;
   double speed = 1;
+  bool useInterval = false;
+  int interval = 1000; // 1000ms = 1 sec
+  int repeat = 1; // Just loop once
   int ttl = -1;
   int broadcast = 0;
 
   int opt;
-  while ((opt = getopt(argc, argv, "i:bls:t:")) != -1) {
+  while ((opt = getopt(argc, argv, "i:bls:c:r:t:")) != -1) {
     switch (opt) {
     case 'i':
       ifindex = if_nametoindex(optarg);
@@ -60,6 +65,13 @@ int main(int argc, char *argv[]) {
       break;
     case 's':
       speed = std::stod(optarg);
+      break;
+    case 'c':
+      interval = std::stoi(optarg);
+      useInterval = true;
+      break;
+    case 'r':
+      repeat = std::stoi(optarg);
       break;
     case 't':
       ttl = std::stoi(optarg);
@@ -118,7 +130,11 @@ int main(int argc, char *argv[]) {
   }
 
   char errbuf[PCAP_ERRBUF_SIZE];
+
+  for (int i = 0; i < repeat; i++) { // Begin repeat loop
+
   pcap_t *handle = pcap_open_offline(argv[optind], errbuf);
+
   if (handle == nullptr) {
     std::cerr << "pcap_open: " << errbuf << std::endl;
     return 1;
@@ -144,16 +160,20 @@ int main(int argc, char *argv[]) {
     }
     auto udp = reinterpret_cast<const udphdr *>(p + sizeof(ether_header) +
                                                 ip->ihl * 4);
-
-    if (tv.tv_sec == 0) {
-      tv = header.ts;
+    if (useInterval) { // Constant time interval between packets
+      usleep(interval*1000);
     }
-    timeval diff;
-    timersub(&header.ts, &tv, &diff);
-    tv = header.ts;
-    const double delay =
+    else { // Time intervals as recorded, with optional multiplier
+      if (tv.tv_sec == 0) {
+        tv = header.ts;
+      }
+      timeval diff;
+      timersub(&header.ts, &tv, &diff);
+      tv = header.ts;
+      const double delay =
         std::max(0.0, (diff.tv_sec * 1000000 + diff.tv_usec) * speed);
-    usleep(delay);
+      usleep(delay);
+    }
 
     ssize_t len = ntohs(udp->len) - 8;
     const u_char *d = &p[sizeof(ether_header) + ip->ihl * 4 + sizeof(udphdr)];
@@ -170,6 +190,7 @@ int main(int argc, char *argv[]) {
       return 1;
     }
   }
+  } // end for loop for repeat
 
   return 0;
 }
