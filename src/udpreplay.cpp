@@ -148,6 +148,12 @@ int main(int argc, char *argv[]) {
       continue;
     }
     auto eth = reinterpret_cast<const ether_header *>(p);
+    
+    // jump over and ignore vlan tag 
+    if (ntohs(eth->ether_type) == ETHERTYPE_VLAN) {
+       p += 4;
+       eth = reinterpret_cast<const ether_header *>(p);
+    }
     if (ntohs(eth->ether_type) != ETHERTYPE_IP) {
       continue;
     }
