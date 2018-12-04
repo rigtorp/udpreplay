@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
   double speed = 1;
   bool useInterval = false;
   int interval = 1000; // 1000ms = 1 sec
-  int repeat = 1; // Just loop once
+  int repeat = 1;      // Just loop once
   int ttl = -1;
   int broadcast = 0;
 
@@ -131,72 +131,71 @@ int main(int argc, char *argv[]) {
 
   char errbuf[PCAP_ERRBUF_SIZE];
 
-  for (int i = 0; i < repeat; i++) { // Begin repeat loop
+  for (int i = 0; i < repeat; i++) {
 
-  pcap_t *handle = pcap_open_offline(argv[optind], errbuf);
+    pcap_t *handle = pcap_open_offline(argv[optind], errbuf);
 
-  if (handle == nullptr) {
-    std::cerr << "pcap_open: " << errbuf << std::endl;
-    return 1;
-  }
-
-  pcap_pkthdr header;
-  const u_char *p;
-  timeval tv = {0, 0};
-  while ((p = pcap_next(handle, &header))) {
-    if (header.len != header.caplen) {
-      continue;
-    }
-    auto eth = reinterpret_cast<const ether_header *>(p);
-    
-    // jump over and ignore vlan tag 
-    if (ntohs(eth->ether_type) == ETHERTYPE_VLAN) {
-       p += 4;
-       eth = reinterpret_cast<const ether_header *>(p);
-    }
-    if (ntohs(eth->ether_type) != ETHERTYPE_IP) {
-      continue;
-    }
-    auto ip = reinterpret_cast<const iphdr *>(p + sizeof(ether_header));
-    if (ip->version != 4) {
-      continue;
-    }
-    if (ip->protocol != IPPROTO_UDP) {
-      continue;
-    }
-    auto udp = reinterpret_cast<const udphdr *>(p + sizeof(ether_header) +
-                                                ip->ihl * 4);
-    if (useInterval) { // Constant time interval between packets
-      usleep(interval*1000);
-    }
-    else { // Time intervals as recorded, with optional multiplier
-      if (tv.tv_sec == 0) {
-        tv = header.ts;
-      }
-      timeval diff;
-      timersub(&header.ts, &tv, &diff);
-      tv = header.ts;
-      const double delay =
-        std::max(0.0, (diff.tv_sec * 1000000 + diff.tv_usec) * speed);
-      usleep(delay);
-    }
-
-    ssize_t len = ntohs(udp->len) - 8;
-    const u_char *d = &p[sizeof(ether_header) + ip->ihl * 4 + sizeof(udphdr)];
-
-    sockaddr_in addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_port = udp->dest;
-    addr.sin_addr = {ip->daddr};
-    auto n = sendto(fd, d, len, 0, reinterpret_cast<sockaddr *>(&addr),
-                    sizeof(addr));
-    if (n != len) {
-      std::cerr << "sendto: " << strerror(errno) << std::endl;
+    if (handle == nullptr) {
+      std::cerr << "pcap_open: " << errbuf << std::endl;
       return 1;
     }
+
+    pcap_pkthdr header;
+    const u_char *p;
+    timeval tv = {0, 0};
+    while ((p = pcap_next(handle, &header))) {
+      if (header.len != header.caplen) {
+        continue;
+      }
+      auto eth = reinterpret_cast<const ether_header *>(p);
+
+      // jump over and ignore vlan tag
+      if (ntohs(eth->ether_type) == ETHERTYPE_VLAN) {
+        p += 4;
+        eth = reinterpret_cast<const ether_header *>(p);
+      }
+      if (ntohs(eth->ether_type) != ETHERTYPE_IP) {
+        continue;
+      }
+      auto ip = reinterpret_cast<const iphdr *>(p + sizeof(ether_header));
+      if (ip->version != 4) {
+        continue;
+      }
+      if (ip->protocol != IPPROTO_UDP) {
+        continue;
+      }
+      auto udp = reinterpret_cast<const udphdr *>(p + sizeof(ether_header) +
+                                                  ip->ihl * 4);
+      if (useInterval) { // Constant time interval between packets
+        usleep(interval * 1000);
+      } else { // Time intervals as recorded, with optional multiplier
+        if (tv.tv_sec == 0) {
+          tv = header.ts;
+        }
+        timeval diff;
+        timersub(&header.ts, &tv, &diff);
+        tv = header.ts;
+        const double delay =
+            std::max(0.0, (diff.tv_sec * 1000000 + diff.tv_usec) * speed);
+        usleep(delay);
+      }
+
+      ssize_t len = ntohs(udp->len) - 8;
+      const u_char *d = &p[sizeof(ether_header) + ip->ihl * 4 + sizeof(udphdr)];
+
+      sockaddr_in addr;
+      memset(&addr, 0, sizeof(addr));
+      addr.sin_family = AF_INET;
+      addr.sin_port = udp->dest;
+      addr.sin_addr = {ip->daddr};
+      auto n = sendto(fd, d, len, 0, reinterpret_cast<sockaddr *>(&addr),
+                      sizeof(addr));
+      if (n != len) {
+        std::cerr << "sendto: " << strerror(errno) << std::endl;
+        return 1;
+      }
+    }
   }
-  } // end for loop for repeat
 
   return 0;
 }
