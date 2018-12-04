@@ -44,9 +44,8 @@ int main(int argc, char *argv[]) {
   int ifindex = 0;
   int loopback = 0;
   double speed = 1;
-  bool useInterval = false;
-  int interval = 1000; // 1000ms = 1 sec
-  int repeat = 1;      // Just loop once
+  int interval = -1;
+  int repeat = 1;
   int ttl = -1;
   int broadcast = 0;
 
@@ -65,16 +64,30 @@ int main(int argc, char *argv[]) {
       break;
     case 's':
       speed = std::stod(optarg);
+      if (speed < 0) {
+        std::cerr << "speed must be positive" << std::endl;
+      }
       break;
     case 'c':
       interval = std::stoi(optarg);
-      useInterval = true;
+      if (interval <= 0) {
+        std::cerr << "interval must be positive integer" << std::endl;
+        return 1;
+      }
       break;
     case 'r':
       repeat = std::stoi(optarg);
+      if (repeat <= 0) {
+        std::cerr << "repeat must be positive integer" << std::endl;
+        return 1;
+      }
       break;
     case 't':
       ttl = std::stoi(optarg);
+      if (ttl < 0) {
+        std::cerr << "ttl must be non-negative integer" << std::endl;
+        return 1;
+      }
       break;
     case 'b':
       broadcast = 1;
@@ -166,9 +179,10 @@ int main(int argc, char *argv[]) {
       }
       auto udp = reinterpret_cast<const udphdr *>(p + sizeof(ether_header) +
                                                   ip->ihl * 4);
-      if (useInterval) { // Constant time interval between packets
+      if (interval != -1) {
+        // Use constant packet rate
         usleep(interval * 1000);
-      } else { // Time intervals as recorded, with optional multiplier
+      } else {
         if (tv.tv_sec == 0) {
           tv = header.ts;
         }
