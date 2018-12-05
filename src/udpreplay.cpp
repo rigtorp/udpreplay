@@ -21,6 +21,7 @@ SOFTWARE.
  */
 
 #include <cstring>
+#include <iomanip>
 #include <iostream>
 #include <net/ethernet.h>
 #include <net/if.h>
@@ -196,12 +197,15 @@ int main(int argc, char *argv[]) {
         if (tv.tv_sec == 0) {
           tv = header.ts;
           tv0 = header.ts;
+          std::setprecision(6);
+          std::cout << std::fixed << "First epoch: " << tv0.tv_sec + tv0.tv_usec * 1e-6 << std::endl;
         }
         timeval diff;
         timersub(&header.ts, &tv0, &diff);
         if (fastforward < diff.tv_sec + diff.tv_usec * 1e-6) {
           if (!fastforward_finished) {
             std::cout << fastforward << " seconds have passed." << std::endl;
+            std::cout << std::fixed << "Current epoch: " << header.ts.tv_sec + header.ts.tv_usec * 1e-6 << std::endl;
             fastforward_finished = true;
           }
           timersub(&header.ts, &tv, &diff);
