@@ -151,6 +151,7 @@ int main(int argc, char *argv[]) {
   }
 
   char errbuf[PCAP_ERRBUF_SIZE];
+  bool fastforward_finished = fastforward ? false : true;
 
   for (int i = 0; i < repeat; i++) {
 
@@ -199,6 +200,10 @@ int main(int argc, char *argv[]) {
         timeval diff;
         timersub(&header.ts, &tv0, &diff);
         if (fastforward < diff.tv_sec + diff.tv_usec * 1e-6) {
+          if (!fastforward_finished) {
+            std::cout << fastforward << " seconds have passed." << std::endl;
+            fastforward_finished = true;
+          }
           timersub(&header.ts, &tv, &diff);
           const double delay =
               std::max(0.0, (diff.tv_sec * 1000000 + diff.tv_usec) * speed);
