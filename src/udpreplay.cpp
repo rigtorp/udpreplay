@@ -31,15 +31,16 @@ SOFTWARE.
 
 int main(int argc, char *argv[]) {
   static const char usage[] =
-      " [-i iface] [-l] [-s speed] [-c millisec] [-r repeat] [-t ttl] pcap\n"
+      " [-i iface] [-l] [-s speed] [-c millisec] [-r repeat] [-t ttl] [-f fastforward] pcap\n"
       "\n"
-      "  -i iface    interface to send packets through\n"
-      "  -l          enable loopback\n"
-      "  -c millisec constant milliseconds between packets\n"
-      "  -r repeat   number of times to loop data\n"
-      "  -s speed    replay speed relative to pcap timestamps\n"
-      "  -t ttl      packet ttl\n"
-      "  -b          enable broadcast (SO_BROADCAST)";
+      "  -i iface        interface to send packets through\n"
+      "  -l              enable loopback\n"
+      "  -c millisec     constant milliseconds between packets\n"
+      "  -r repeat       number of times to loop data\n"
+      "  -s speed        replay speed relative to pcap timestamps\n"
+      "  -t ttl          packet ttl\n"
+      "  -f fastforward  fastforwrd (seconds)\n"
+      "  -b              enable broadcast (SO_BROADCAST)";
 
   int ifindex = 0;
   int loopback = 0;
@@ -47,10 +48,11 @@ int main(int argc, char *argv[]) {
   int interval = -1;
   int repeat = 1;
   int ttl = -1;
+  double fastforward = 0;
   int broadcast = 0;
 
   int opt;
-  while ((opt = getopt(argc, argv, "i:bls:c:r:t:")) != -1) {
+  while ((opt = getopt(argc, argv, "i:bls:c:r:t:f:")) != -1) {
     switch (opt) {
     case 'i':
       ifindex = if_nametoindex(optarg);
@@ -87,6 +89,12 @@ int main(int argc, char *argv[]) {
       if (ttl < 0) {
         std::cerr << "ttl must be non-negative integer" << std::endl;
         return 1;
+      }
+      break;
+    case 'f':
+      fastforward = std::stod(optarg);
+      if (fastforward < 0) {
+        std::cerr << "fastforward seconds must be positive" << std::endl;
       }
       break;
     case 'b':
@@ -156,6 +164,7 @@ int main(int argc, char *argv[]) {
     pcap_pkthdr header;
     const u_char *p;
     timeval tv = {0, 0};
+    timeval tv0 = {0, 0};
     while ((p = pcap_next(handle, &header))) {
       if (header.len != header.caplen) {
         continue;
@@ -185,13 +194,17 @@ int main(int argc, char *argv[]) {
       } else {
         if (tv.tv_sec == 0) {
           tv = header.ts;
+          tv0 = header.ts;
         }
         timeval diff;
-        timersub(&header.ts, &tv, &diff);
+        timersub(&header.ts, &tv0, &diff);
+        if (fastforward < diff.tv_sec + diff.tv_usec * 1e-6) {
+          timersub(&header.ts, &tv, &diff);
+          const double delay =
+              std::max(0.0, (diff.tv_sec * 1000000 + diff.tv_usec) * speed);
+          usleep(delay);
+        }
         tv = header.ts;
-        const double delay =
-            std::max(0.0, (diff.tv_sec * 1000000 + diff.tv_usec) * speed);
-        usleep(delay);
       }
 
       ssize_t len = ntohs(udp->len) - 8;
