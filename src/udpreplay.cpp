@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
       "  -i iface    interface to send packets through\n"
       "  -l          enable loopback\n"
       "  -c millisec constant milliseconds between packets\n"
-      "  -r repeat   number of times to loop data\n"
+      "  -r repeat   number of times to loop data (-1 for infinite loop)\n"
       "  -s speed    replay speed relative to pcap timestamps\n"
       "  -t ttl      packet ttl\n"
       "  -b          enable broadcast (SO_BROADCAST)";
@@ -77,8 +77,8 @@ int main(int argc, char *argv[]) {
       break;
     case 'r':
       repeat = std::stoi(optarg);
-      if (repeat <= 0) {
-        std::cerr << "repeat must be positive integer" << std::endl;
+      if (repeat != -1 && repeat <= 0) {
+        std::cerr << "repeat must be positive integer or -1" << std::endl;
         return 1;
       }
       break;
@@ -144,7 +144,7 @@ int main(int argc, char *argv[]) {
 
   char errbuf[PCAP_ERRBUF_SIZE];
 
-  for (int i = 0; i < repeat; i++) {
+  for (int i = 0; repeat == -1 || i < repeat; i++) {
 
     pcap_t *handle = pcap_open_offline(argv[optind], errbuf);
 
