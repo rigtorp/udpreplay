@@ -24,6 +24,7 @@ SOFTWARE.
 #include <iostream>
 #include <net/ethernet.h>
 #include <net/if.h>
+#include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 #include <pcap/pcap.h>
@@ -170,15 +171,15 @@ int main(int argc, char *argv[]) {
       if (ntohs(eth->ether_type) != ETHERTYPE_IP) {
         continue;
       }
-      auto ip = reinterpret_cast<const iphdr *>(p + sizeof(ether_header));
-      if (ip->version != 4) {
+      auto ip = reinterpret_cast<const struct ip *>(p + sizeof(ether_header));
+      if (ip->ip_v != 4) {
         continue;
       }
-      if (ip->protocol != IPPROTO_UDP) {
+      if (ip->ip_p != IPPROTO_UDP) {
         continue;
       }
       auto udp = reinterpret_cast<const udphdr *>(p + sizeof(ether_header) +
-                                                  ip->ihl * 4);
+                                                  ip->ip_hl * 4);
       if (interval != -1) {
         // Use constant packet rate
         usleep(interval * 1000);
@@ -194,14 +195,14 @@ int main(int argc, char *argv[]) {
         usleep(delay);
       }
 
-      ssize_t len = ntohs(udp->len) - 8;
-      const u_char *d = &p[sizeof(ether_header) + ip->ihl * 4 + sizeof(udphdr)];
+      ssize_t len = ntohs(udp->uh_ulen) - 8;
+      const u_char *d = &p[sizeof(ether_header) + ip->ip_hl * 4 + sizeof(udphdr)];
 
       sockaddr_in addr;
       memset(&addr, 0, sizeof(addr));
       addr.sin_family = AF_INET;
-      addr.sin_port = udp->dest;
-      addr.sin_addr = {ip->daddr};
+      addr.sin_port = udp->uh_dport;
+      addr.sin_addr = {ip->ip_dst};
       auto n = sendto(fd, d, len, 0, reinterpret_cast<sockaddr *>(&addr),
                       sizeof(addr));
       if (n != len) {
