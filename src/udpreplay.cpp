@@ -27,7 +27,18 @@ SOFTWARE.
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 #include <pcap/pcap.h>
+#include <math.h>
 #include <unistd.h>
+
+#define timespecadd(vvp, uvp)           \
+  do {                                  \
+    (vvp)->tv_sec += (uvp)->tv_sec;     \
+    (vvp)->tv_nsec += (uvp)->tv_nsec;   \
+    if ((vvp)->tv_nsec >= 1000000000) { \
+      (vvp)->tv_sec++;                  \
+      (vvp)->tv_nsec -= 1000000000;     \
+    }                                   \
+  } while (0)
 
 int main(int argc, char *argv[]) {
   static const char usage[] =
@@ -156,6 +167,7 @@ int main(int argc, char *argv[]) {
     pcap_pkthdr header;
     const u_char *p;
     timeval tv = {0, 0};
+    struct timespec epoch = {0, 0};
     while ((p = pcap_next(handle, &header))) {
       if (header.len != header.caplen) {
         continue;
@@ -183,15 +195,30 @@ int main(int argc, char *argv[]) {
         // Use constant packet rate
         usleep(interval * 1000);
       } else {
-        if (tv.tv_sec == 0) {
+        if (epoch.tv_sec == 0 && epoch.tv_nsec == 0) {
+          clock_gettime(CLOCK_MONOTONIC, &epoch);
           tv = header.ts;
+        } else {
+          timeval diff;
+          timersub(&header.ts, &tv, &diff);
+          if (speed != 1.0) {
+              double dval_s, dval_us;
+              dval_s = speed * (double)diff.tv_sec;
+              diff.tv_sec = trunc(dval_s);
+              dval_us = (speed * (double)diff.tv_usec) + (1e+6 * fmod(dval_s, 1.0));
+              if (dval_us >= 1e+6) {
+                  diff.tv_sec += trunc(dval_us / 1e+6);
+                  diff.tv_usec = round(fmod(dval_us, 1e+6));
+              } else {
+                  diff.tv_usec = round(dval_us);
+              }
+          }
+          struct timespec tsdiff;
+          tsdiff.tv_sec = diff.tv_sec;
+          tsdiff.tv_nsec = diff.tv_usec * 1000;
+          timespecadd(&tsdiff, &epoch);
+          clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &tsdiff, NULL);
         }
-        timeval diff;
-        timersub(&header.ts, &tv, &diff);
-        tv = header.ts;
-        const double delay =
-            std::max(0.0, (diff.tv_sec * 1000000 + diff.tv_usec) * speed);
-        usleep(delay);
       }
 
       ssize_t len = ntohs(udp->len) - 8;
