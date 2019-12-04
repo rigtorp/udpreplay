@@ -162,4 +162,6 @@ before_script:
   - cmake --version
   - cmake -DCMAKE_CXX_FLAGS="-Werror" ..
 
-script: make && ctest
+script:
+  - make && ctest
+  - ../tests/basic.sh
