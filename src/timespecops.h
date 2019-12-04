@@ -44,19 +44,23 @@
     SEC(vvp) += SEC(uvp);           \
     NSEC(vvp) += NSEC(uvp);         \
     if (NSEC(vvp) >= NSEC_IN_SEC) { \
-      SEC(vvp);                     \
+      SEC(vvp)++;                   \
       NSEC(vvp) -= NSEC_IN_SEC;     \
     }                               \
   } while (0)
 
-#define timespecsub2(r, v, u)                                         \
-    do {                                                              \
-        SEC(r) = SEC(v) - SEC(u);                                     \
-        NSEC(r) = NSEC(v) - NSEC(u);                                  \
-        if (NSEC(r) < 0 && (SEC(r) > 0 || NSEC(r) <= -NSEC_IN_SEC)) { \
-            SEC(r)--;                                                 \
-            NSEC(r) += NSEC_IN_SEC;                                   \
-        }                                                             \
-    } while (0);
+#ifdef timespecadd
+#  undef timespecsub
+#endif
+
+#define timespecsub(vvp, uvp)   \
+  do {                          \
+    SEC(vvp) -= SEC(uvp);       \
+    NSEC(vvp) -= NSEC(uvp);     \
+    if (NSEC(vvp) < 0) {        \
+      SEC(vvp)--;               \
+      NSEC(vvp) += NSEC_IN_SEC; \
+    }                           \
+  } while (0)
 
 #endif /* _TIMESPECOPS_H */
