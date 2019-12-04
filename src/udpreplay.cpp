@@ -150,16 +150,11 @@ int main(int argc, char *argv[]) {
 
   for (int i = 0; repeat == -1 || i < repeat; i++) {
 
-    pcap_t *handle = pcap_open_offline(argv[optind], errbuf);
+    auto *handle = pcap_open_offline_with_tstamp_precision(argv[optind],
+     PCAP_TSTAMP_PRECISION_NANO, errbuf);
 
     if (handle == nullptr) {
       std::cerr << "pcap_open: " << errbuf << std::endl;
-      return 1;
-    }
-
-    if (pcap_set_tstamp_precision(handle, PCAP_TSTAMP_PRECISION_NANO) != 0) {
-      std::cerr << "pcap_set_tstamp_precision(PCAP_TSTAMP_PRECISION_NANO)"
-       << std::endl;
       return 1;
     }
 
@@ -204,22 +199,21 @@ int main(int argc, char *argv[]) {
           clock_gettime(CLOCK_MONOTONIC, &epoch);
           tv = header_ts;
         } else {
-          timespec diff;
-          timespecsub2(&diff, &header_ts, &tv);
+          timespecsub(&header_ts, &tv);
           if (speed != 1.0) {
               double dval_s, dval_us;
-              dval_s = speed * (double)diff.tv_sec;
-              diff.tv_sec = trunc(dval_s);
-              dval_us = (speed * (double)diff.tv_nsec) + (1e+9 * fmod(dval_s, 1.0));
+              dval_s = speed * (double)header_ts.tv_sec;
+              header_ts.tv_sec = trunc(dval_s);
+              dval_us = (speed * (double)header_ts.tv_nsec) + (1e+9 * fmod(dval_s, 1.0));
               if (dval_us >= 1e+9) {
-                  diff.tv_sec += trunc(dval_us / 1e+9);
-                  diff.tv_nsec = round(fmod(dval_us, 1e+9));
+                  header_ts.tv_sec += trunc(dval_us / 1e+9);
+                  header_ts.tv_nsec = round(fmod(dval_us, 1e+9));
               } else {
-                  diff.tv_nsec = round(dval_us);
+                  header_ts.tv_nsec = round(dval_us);
               }
           }
-          timespecadd(&diff, &epoch);
-          clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &diff, NULL);
+          timespecadd(&header_ts, &epoch);
+          clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &header_ts, NULL);
         }
       }
 
