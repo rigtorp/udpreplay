@@ -31,15 +31,7 @@ SOFTWARE.
 #include <math.h>
 #include <unistd.h>
 
-#define timespecadd(vvp, uvp)           \
-  do {                                  \
-    (vvp)->tv_sec += (uvp)->tv_sec;     \
-    (vvp)->tv_nsec += (uvp)->tv_nsec;   \
-    if ((vvp)->tv_nsec >= 1000000000) { \
-      (vvp)->tv_sec++;                  \
-      (vvp)->tv_nsec -= 1000000000;     \
-    }                                   \
-  } while (0)
+#include "timespecops.h"
 
 int main(int argc, char *argv[]) {
   static const char usage[] =
@@ -165,9 +157,15 @@ int main(int argc, char *argv[]) {
       return 1;
     }
 
+    if (pcap_set_tstamp_precision(handle, PCAP_TSTAMP_PRECISION_NANO) != 0) {
+      std::cerr << "pcap_set_tstamp_precision(PCAP_TSTAMP_PRECISION_NANO)"
+       << std::endl;
+      return 1;
+    }
+
     pcap_pkthdr header;
     const u_char *p;
-    timeval tv = {0, 0};
+    timespec tv = {0, 0};
     struct timespec epoch = {0, 0};
     while ((p = pcap_next(handle, &header))) {
       if (header.len != header.caplen) {
@@ -196,29 +194,32 @@ int main(int argc, char *argv[]) {
         // Use constant packet rate
         usleep(interval * 1000);
       } else {
+        /*
+         * There is no mistake below: when PCAP_TSTAMP_PRECISION_NANO is
+         * set, tv_usec field in the header represents *NANO*seconds, not
+         * micro.
+         */
+        timespec header_ts = {header.ts.tv_sec, header.ts.tv_usec};
         if (epoch.tv_sec == 0 && epoch.tv_nsec == 0) {
           clock_gettime(CLOCK_MONOTONIC, &epoch);
-          tv = header.ts;
+          tv = header_ts;
         } else {
-          timeval diff;
-          timersub(&header.ts, &tv, &diff);
+          timespec diff;
+          timespecsub2(&diff, &header_ts, &tv);
           if (speed != 1.0) {
               double dval_s, dval_us;
               dval_s = speed * (double)diff.tv_sec;
               diff.tv_sec = trunc(dval_s);
-              dval_us = (speed * (double)diff.tv_usec) + (1e+6 * fmod(dval_s, 1.0));
-              if (dval_us >= 1e+6) {
-                  diff.tv_sec += trunc(dval_us / 1e+6);
-                  diff.tv_usec = round(fmod(dval_us, 1e+6));
+              dval_us = (speed * (double)diff.tv_nsec) + (1e+9 * fmod(dval_s, 1.0));
+              if (dval_us >= 1e+9) {
+                  diff.tv_sec += trunc(dval_us / 1e+9);
+                  diff.tv_nsec = round(fmod(dval_us, 1e+9));
               } else {
-                  diff.tv_usec = round(dval_us);
+                  diff.tv_nsec = round(dval_us);
               }
           }
-          struct timespec tsdiff;
-          tsdiff.tv_sec = diff.tv_sec;
-          tsdiff.tv_nsec = diff.tv_usec * 1000;
-          timespecadd(&tsdiff, &epoch);
-          clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &tsdiff, NULL);
+          timespecadd(&diff, &epoch);
+          clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &diff, NULL);
         }
       }
 
