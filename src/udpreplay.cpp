@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
     case 'c':
       interval = std::stoi(optarg);
       if (interval < 0) {
-        std::cerr << "interval must be positive integer" << std::endl;
+        std::cerr << "interval must be non-negative integer" << std::endl;
         return 1;
       }
       interval_ts.tv_sec = interval / 1000;
@@ -206,6 +206,8 @@ int main(int argc, char *argv[]) {
       timespec sleepuntil;
 
       if (interval != -1) {
+        if (interval == 0)
+          goto firsttime;
         timespecadd(&epoch, &interval_ts);
         sleepuntil = epoch;
       } else {
