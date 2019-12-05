@@ -27,7 +27,8 @@ for speed in 0.1 0.5 1.0 1.5 1.9
 do
   echo "- replaying ${TCASE} at (speed / ${speed})x..."
   "${TCMD}" ./udpreplay -s ${speed} "${PFILE}" 2>&1 | \
-   awk '{print $1}' | sed 's|[0-9]$||' >> "${RESFILE}"
+   awk '{print $1}' | sed 's|[0-9]$||' >> "${RESFILE}" &
 done
+wait
 diff -u "${CORRFILE}" "${RESFILE}"
 echo "Looks good!"
