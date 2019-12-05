@@ -151,6 +151,7 @@ int main(int argc, char *argv[]) {
 
   char errbuf[PCAP_ERRBUF_SIZE];
 
+  struct timespec epoch = {0, 0};
   for (int i = 0; repeat == -1 || i < repeat; i++) {
 
     auto *handle = pcap_open_offline_with_tstamp_precision(argv[optind],
@@ -164,7 +165,6 @@ int main(int argc, char *argv[]) {
     pcap_pkthdr header;
     const u_char *p;
     timespec tv = {0, 0};
-    struct timespec epoch = {0, 0};
     while ((p = pcap_next(handle, &header))) {
       if (header.len != header.caplen) {
         continue;
@@ -189,10 +189,17 @@ int main(int argc, char *argv[]) {
       auto udp = reinterpret_cast<const udphdr *>(p + sizeof(ether_header) +
                                                   ip->ip_hl * 4);
 
+      /*
+       * There is no mistake below: when PCAP_TSTAMP_PRECISION_NANO is
+       * set, tv_usec field in the header represents *NANO*seconds, not
+       * micro.
+       */
       timespec header_ts = {header.ts.tv_sec, header.ts.tv_usec};
+      if (tv.tv_sec == 0 && tv.tv_nsec == 0) {
+        tv = header_ts;
+      }
       if (epoch.tv_sec == 0 && epoch.tv_nsec == 0) {
         clock_gettime(CLOCK_MONOTONIC, &epoch);
-        tv = header_ts;
         goto firsttime;
       }
 
@@ -202,25 +209,20 @@ int main(int argc, char *argv[]) {
         timespecadd(&epoch, &interval_ts);
         sleepuntil = epoch;
       } else {
-        /*
-         * There is no mistake below: when PCAP_TSTAMP_PRECISION_NANO is
-         * set, tv_usec field in the header represents *NANO*seconds, not
-         * micro.
-         */
         sleepuntil = header_ts;
         timespecsub(&sleepuntil, &tv);
         if (speed != 1.0) {
-            double dval_s, dval_us;
-            dval_s = speed * (double)sleepuntil.tv_sec;
-            sleepuntil.tv_sec = trunc(dval_s);
-            dval_us = (speed * (double)sleepuntil.tv_nsec) + (1e+9 * fmod(dval_s, 1.0));
-            if (dval_us >= 1e+9) {
-              sleepuntil.tv_sec += trunc(dval_us / 1e+9);
-              sleepuntil.tv_nsec = round(fmod(dval_us, 1e+9));
-            } else {
-              sleepuntil.tv_nsec = round(dval_us);
-            }
+          double dval_s, dval_ns;
+          dval_s = speed * (double)sleepuntil.tv_sec;
+          sleepuntil.tv_sec = trunc(dval_s);
+          dval_ns = (speed * (double)sleepuntil.tv_nsec) + (1e+9 * fmod(dval_s, 1.0));
+          if (dval_ns >= 1e+9) {
+            sleepuntil.tv_sec += trunc(dval_ns / 1e+9);
+            sleepuntil.tv_nsec = round(fmod(dval_ns, 1e+9));
+          } else {
+            sleepuntil.tv_nsec = round(dval_ns);
           }
+        }
         timespecadd(&sleepuntil, &epoch);
       }
       clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &sleepuntil, NULL);
