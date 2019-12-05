@@ -9,7 +9,7 @@ linux_time()
   "${_TCMD}" -f "\t%e real\t%U user\t%s sys" "${@}"
 }
 
-if "${_TCMD}" -f "" echo 2>/dev/null
+if "${_TCMD}" -f "" echo 2>/dev/null >/dev/null
 then
   TCMD="linux_time"
 else
