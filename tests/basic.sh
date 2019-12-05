@@ -29,10 +29,11 @@ do
   "${TCMD}" ./udpreplay -s ${speed} "${PFILE}" 2>&1 | \
    awk '{print $1}' | sed 's|[0-9]$||' >> "${RESFILE}" &
 done
-for interval in 2 8 15 22 29 33 36 46 53 57
+for interval in 16 28 60
 do
-  printf "%s replaying ${TCASE} @ interval %dms...\n" "-" "${interval}"
-  "${TCMD}" ./udpreplay -c ${interval} "${PFILE}" 2>&1 | \
+  ntimes=$((60 / ${interval}))
+  printf "%s replaying ${TCASE} ${ntimes} times @ interval %dms...\n" "-" "${interval}"
+  "${TCMD}" ./udpreplay -c ${interval} -r ${ntimes} "${PFILE}" 2>&1 | \
    awk '{print $1}' | sed 's|[0-9]$||' >> "${RESFILE}" &
 done
 wait
