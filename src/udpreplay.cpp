@@ -52,6 +52,7 @@ int main(int argc, char *argv[]) {
   int repeat = 1;
   int ttl = -1;
   int broadcast = 0;
+  timespec interval_ts = {0, 0};
 
   int opt;
   while ((opt = getopt(argc, argv, "i:bls:c:r:t:")) != -1) {
@@ -74,10 +75,12 @@ int main(int argc, char *argv[]) {
       break;
     case 'c':
       interval = std::stoi(optarg);
-      if (interval <= 0) {
+      if (interval < 0) {
         std::cerr << "interval must be positive integer" << std::endl;
         return 1;
       }
+      interval_ts.tv_sec = interval / 1000;
+      interval_ts.tv_nsec = (interval - (interval_ts.tv_sec * 1000)) * 1000000;
       break;
     case 'r':
       repeat = std::stoi(optarg);
@@ -185,38 +188,44 @@ int main(int argc, char *argv[]) {
       }
       auto udp = reinterpret_cast<const udphdr *>(p + sizeof(ether_header) +
                                                   ip->ip_hl * 4);
+
+      timespec header_ts = {header.ts.tv_sec, header.ts.tv_usec};
+      if (epoch.tv_sec == 0 && epoch.tv_nsec == 0) {
+        clock_gettime(CLOCK_MONOTONIC, &epoch);
+        tv = header_ts;
+        goto firsttime;
+      }
+
+      timespec sleepuntil;
+
       if (interval != -1) {
-        // Use constant packet rate
-        usleep(interval * 1000);
+        timespecadd(&epoch, &interval_ts);
+        sleepuntil = epoch;
       } else {
         /*
          * There is no mistake below: when PCAP_TSTAMP_PRECISION_NANO is
          * set, tv_usec field in the header represents *NANO*seconds, not
          * micro.
          */
-        timespec header_ts = {header.ts.tv_sec, header.ts.tv_usec};
-        if (epoch.tv_sec == 0 && epoch.tv_nsec == 0) {
-          clock_gettime(CLOCK_MONOTONIC, &epoch);
-          tv = header_ts;
-        } else {
-          timespecsub(&header_ts, &tv);
-          if (speed != 1.0) {
-              double dval_s, dval_us;
-              dval_s = speed * (double)header_ts.tv_sec;
-              header_ts.tv_sec = trunc(dval_s);
-              dval_us = (speed * (double)header_ts.tv_nsec) + (1e+9 * fmod(dval_s, 1.0));
-              if (dval_us >= 1e+9) {
-                  header_ts.tv_sec += trunc(dval_us / 1e+9);
-                  header_ts.tv_nsec = round(fmod(dval_us, 1e+9));
-              } else {
-                  header_ts.tv_nsec = round(dval_us);
-              }
+        sleepuntil = header_ts;
+        timespecsub(&sleepuntil, &tv);
+        if (speed != 1.0) {
+            double dval_s, dval_us;
+            dval_s = speed * (double)sleepuntil.tv_sec;
+            sleepuntil.tv_sec = trunc(dval_s);
+            dval_us = (speed * (double)sleepuntil.tv_nsec) + (1e+9 * fmod(dval_s, 1.0));
+            if (dval_us >= 1e+9) {
+              sleepuntil.tv_sec += trunc(dval_us / 1e+9);
+              sleepuntil.tv_nsec = round(fmod(dval_us, 1e+9));
+            } else {
+              sleepuntil.tv_nsec = round(dval_us);
+            }
           }
-          timespecadd(&header_ts, &epoch);
-          clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &header_ts, NULL);
-        }
+        timespecadd(&sleepuntil, &epoch);
       }
+      clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &sleepuntil, NULL);
 
+firsttime:
       ssize_t len = ntohs(udp->uh_ulen) - 8;
       const u_char *d = &p[sizeof(ether_header) + ip->ip_hl * 4 + sizeof(udphdr)];
 
