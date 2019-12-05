@@ -23,9 +23,9 @@ CORRFILE="../tests/${TFNAME}"
 PFILE="../tests/${TCASE}.pcap"
 
 rm -f "${RESFILE}"
-for speed in 0.095 0.5 1.0 1.5 1.9
+for speed in 0.095 0.255 0.502 0.75 0.997 1.0 1.245 1.506 1.753 1.899
 do
-  printf "%s replaying ${TCASE} @ (speed / %.1f)x...\n" "-" "${speed}"
+  printf "%s replaying ${TCASE} @ speed (1 / ~%.2f)x...\n" "-" "${speed}"
   "${TCMD}" ./udpreplay -s ${speed} "${PFILE}" 2>&1 | \
    awk '{print $1}' | sed 's|[0-9]$||' >> "${RESFILE}" &
 done
