@@ -245,6 +245,8 @@ firsttime:
         return 1;
       }
     }
+
+    pcap_close(handle);
   }
 
   return 0;
