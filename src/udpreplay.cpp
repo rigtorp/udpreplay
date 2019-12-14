@@ -210,6 +210,8 @@ int main(int argc, char *argv[]) {
         return 1;
       }
     }
+
+    pcap_close(handle);
   }
 
   return 0;
