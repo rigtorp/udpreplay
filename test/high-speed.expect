@@ -1,0 +1,8 @@
+#!/usr/bin/expect -f
+
+spawn time -p ./udpreplay -i lo -s 0.1 -r 100 ../test/test.pcap
+wait
+expect {
+    default { exit 1 }  
+    "real 1.0" { }
+}
