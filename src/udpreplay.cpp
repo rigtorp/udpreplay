@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2018 Erik Rigtorp <erik@rigtorp.se>
+Copyright (c) 2019 Erik Rigtorp <erik@rigtorp.se>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -29,6 +29,8 @@ SOFTWARE.
 #include <netinet/udp.h>
 #include <pcap/pcap.h>
 #include <unistd.h>
+
+#define NANOSECONDS_PER_SECOND 1000000000L
 
 int main(int argc, char *argv[]) {
   static const char usage[] =
@@ -143,21 +145,37 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  char errbuf[PCAP_ERRBUF_SIZE];
+  timespec deadline = {};
+  if (clock_gettime(CLOCK_MONOTONIC, &deadline) == -1) {
+    std::cerr << "clock_gettime: " << strerror(errno) << std::endl;
+    return 1;
+  }
 
   for (int i = 0; repeat == -1 || i < repeat; i++) {
-
-    pcap_t *handle = pcap_open_offline(argv[optind], errbuf);
+    char errbuf[PCAP_ERRBUF_SIZE];
+    pcap_t *handle = pcap_open_offline_with_tstamp_precision(
+        argv[optind], PCAP_TSTAMP_PRECISION_NANO, errbuf);
 
     if (handle == nullptr) {
       std::cerr << "pcap_open: " << errbuf << std::endl;
       return 1;
     }
 
+    timespec start = {-1, -1};
+    timespec pcap_start = {-1, -1};
+
     pcap_pkthdr header;
     const u_char *p;
-    timeval tv = {0, 0};
     while ((p = pcap_next(handle, &header))) {
+      if (start.tv_nsec == -1) {
+        if (clock_gettime(CLOCK_MONOTONIC, &start) == -1) {
+          std::cerr << "clock_gettime: " << strerror(errno) << std::endl;
+          return 1;
+        }
+        pcap_start.tv_sec = header.ts.tv_sec;
+        pcap_start.tv_nsec =
+            header.ts.tv_usec; // Note PCAP_TSTAMP_PRECISION_NANO
+      }
       if (header.len != header.caplen) {
         continue;
       }
@@ -182,21 +200,46 @@ int main(int argc, char *argv[]) {
                                                   ip->ip_hl * 4);
       if (interval != -1) {
         // Use constant packet rate
-        usleep(interval * 1000);
+        deadline.tv_sec += interval / 1000L;
+        deadline.tv_nsec += interval * 1000000L;
       } else {
-        if (tv.tv_sec == 0) {
-          tv = header.ts;
+        // Next packet deadline = start + (packet ts - first packet ts) * speed
+        int64_t delta =
+            (header.ts.tv_sec - pcap_start.tv_sec) * NANOSECONDS_PER_SECOND +
+            (header.ts.tv_usec -
+             pcap_start.tv_nsec); // Note PCAP_TSTAMP_PRECISION_NANO
+        if (speed != 1.0) {
+          delta *= speed;
         }
-        timeval diff;
-        timersub(&header.ts, &tv, &diff);
-        tv = header.ts;
-        const double delay =
-            std::max(0.0, (diff.tv_sec * 1000000 + diff.tv_usec) * speed);
-        usleep(delay);
+        deadline = start;
+        deadline.tv_sec += delta / NANOSECONDS_PER_SECOND;
+        deadline.tv_nsec += delta % NANOSECONDS_PER_SECOND;
+      }
+
+      // Normalize timespec
+      if (deadline.tv_nsec > NANOSECONDS_PER_SECOND) {
+        deadline.tv_sec++;
+        deadline.tv_nsec -= NANOSECONDS_PER_SECOND;
+      }
+
+      timespec now = {};
+      if (clock_gettime(CLOCK_MONOTONIC, &now) == -1) {
+        std::cerr << "clock_gettime: " << strerror(errno) << std::endl;
+        return 1;
+      }
+
+      if (deadline.tv_sec > now.tv_sec ||
+          (deadline.tv_sec == now.tv_sec && deadline.tv_nsec > now.tv_nsec)) {
+        if (clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &deadline,
+                            nullptr) == -1) {
+          std::cerr << "clock_nanosleep: " << strerror(errno) << std::endl;
+          return 1;
+        }
       }
 
       ssize_t len = ntohs(udp->uh_ulen) - 8;
-      const u_char *d = &p[sizeof(ether_header) + ip->ip_hl * 4 + sizeof(udphdr)];
+      const u_char *d =
+          &p[sizeof(ether_header) + ip->ip_hl * 4 + sizeof(udphdr)];
 
       sockaddr_in addr;
       memset(&addr, 0, sizeof(addr));
