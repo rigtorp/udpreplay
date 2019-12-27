@@ -149,11 +149,9 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  char errbuf[PCAP_ERRBUF_SIZE];
-
   struct timespec epoch = {0, 0};
   for (int i = 0; repeat == -1 || i < repeat; i++) {
-
+    char errbuf[PCAP_ERRBUF_SIZE];
     auto *handle = pcap_open_offline_with_tstamp_precision(argv[optind],
      PCAP_TSTAMP_PRECISION_NANO, errbuf);
 
@@ -231,7 +229,8 @@ int main(int argc, char *argv[]) {
 
 firsttime:
       ssize_t len = ntohs(udp->uh_ulen) - 8;
-      const u_char *d = &p[sizeof(ether_header) + ip->ip_hl * 4 + sizeof(udphdr)];
+      const u_char *d =
+          &p[sizeof(ether_header) + ip->ip_hl * 4 + sizeof(udphdr)];
 
       sockaddr_in addr;
       memset(&addr, 0, sizeof(addr));
