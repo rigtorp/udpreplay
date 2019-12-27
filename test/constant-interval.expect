@@ -1,6 +1,6 @@
-#!/usr/bin/expect -f
+#!/usr/bin/env expect
 
-spawn time -p ./udpreplay -i lo -c 1 -r 1000 ../test/test.pcap
+spawn /usr/bin/time -p ./udpreplay -i lo0 -c 1 -r 1000 ../test/test.pcap
 wait
 expect {
     default { exit 1 }  
