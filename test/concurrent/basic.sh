@@ -15,12 +15,13 @@ then
 else
   TCMD="${_TCMD}"
 fi
-  
+
+TDIR="../test/concurrent"
 TCASE="basic_lowres"
 TFNAME="${TCASE}.timings"
 RESFILE="${TFNAME}"
-CORRFILE="../tests/${TFNAME}"
-PFILE="../tests/${TCASE}.pcap"
+CORRFILE="${TDIR}/${TFNAME}"
+PFILE="${TDIR}/${TCASE}.pcap"
 
 rm -f "${RESFILE}"
 for speed in 0.095 0.255 0.502 0.75 0.997 1.0 1.245 1.506 1.753 1.899
