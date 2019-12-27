@@ -176,4 +176,4 @@ before_script:
 
 script:
   - make && ctest
-  - ../tests/basic.sh
+  - ../test/concurrent/basic.sh
