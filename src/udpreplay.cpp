@@ -149,7 +149,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  struct timespec epoch = {0, 0};
+  struct timespec epoch = {0, 0}, *epp = nullptr;
   for (int i = 0; repeat == -1 || i < repeat; i++) {
     char errbuf[PCAP_ERRBUF_SIZE];
     auto *handle = pcap_open_offline_with_tstamp_precision(argv[optind],
@@ -162,7 +162,7 @@ int main(int argc, char *argv[]) {
 
     pcap_pkthdr header;
     const u_char *p;
-    timespec tv = {0, 0};
+    timespec tv = {0, 0}, *tvp  = nullptr;
     while ((p = pcap_next(handle, &header))) {
       if (header.len != header.caplen) {
         continue;
@@ -193,24 +193,23 @@ int main(int argc, char *argv[]) {
        * micro.
        */
       timespec header_ts = {header.ts.tv_sec, header.ts.tv_usec};
-      if (tv.tv_sec == 0 && tv.tv_nsec == 0) {
+      if (tvp == nullptr) {
         tv = header_ts;
+        tvp = &tv;
       }
-      if (epoch.tv_sec == 0 && epoch.tv_nsec == 0) {
-        clock_gettime(CLOCK_MONOTONIC, &epoch);
+      if (epp == nullptr) {
+        epp = &epoch;
+        clock_gettime(CLOCK_MONOTONIC, epp);
         goto firsttime;
       }
-
-      timespec sleepuntil;
 
       if (interval != -1) {
         if (interval == 0)
           goto firsttime;
-        timespecadd(&epoch, &interval_ts);
-        sleepuntil = epoch;
+        timespecadd(epp, &interval_ts);
       } else {
-        sleepuntil = header_ts;
-        timespecsub(&sleepuntil, &tv);
+        timespec sleepuntil = header_ts;
+        timespecsub(&sleepuntil, tvp);
         if (speed != 1.0) {
           double dval_s, dval_ns;
           dval_s = speed * (double)sleepuntil.tv_sec;
@@ -223,9 +222,10 @@ int main(int argc, char *argv[]) {
             sleepuntil.tv_nsec = round(dval_ns);
           }
         }
-        timespecadd(&sleepuntil, &epoch);
+        timespecadd(epp, &sleepuntil);
+        *tvp = header_ts;
       }
-      clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &sleepuntil, NULL);
+      clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, epp, NULL);
 
 firsttime:
       ssize_t len = ntohs(udp->uh_ulen) - 8;
