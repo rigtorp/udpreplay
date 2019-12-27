@@ -18,3 +18,5 @@ add_test(high-speed ${CMAKE_SOURCE_DIR}/test/high-speed.expect)
 add_test(low-speed ${CMAKE_SOURCE_DIR}/test/low-speed.expect)
 
 add_test(normal-speed ${CMAKE_SOURCE_DIR}/test/normal-speed.expect)
+
+add_test(concurrent/basic ${CMAKE_SOURCE_DIR}/test/concurrent/basic.sh)
