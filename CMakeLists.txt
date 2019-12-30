@@ -12,6 +12,7 @@ install(TARGETS udpreplay DESTINATION bin/)
 enable_testing()
 
 add_test(constant-interval ${CMAKE_SOURCE_DIR}/test/constant-interval.expect)
+add_test(constant-interval-ge1 ${CMAKE_SOURCE_DIR}/test/constant-interval-ge1.expect)
 
 add_test(high-speed ${CMAKE_SOURCE_DIR}/test/high-speed.expect)
 
