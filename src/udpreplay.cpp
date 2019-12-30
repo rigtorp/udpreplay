@@ -201,7 +201,7 @@ int main(int argc, char *argv[]) {
       if (interval != -1) {
         // Use constant packet rate
         deadline.tv_sec += interval / 1000L;
-        deadline.tv_nsec += interval * 1000000L;
+        deadline.tv_nsec += (interval * 1000000L) % NANOSECONDS_PER_SECOND;
       } else {
         // Next packet deadline = start + (packet ts - first packet ts) * speed
         int64_t delta =
