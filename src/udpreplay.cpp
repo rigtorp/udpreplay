@@ -73,8 +73,8 @@ int main(int argc, char *argv[]) {
       break;
     case 'c':
       interval = std::stoi(optarg);
-      if (interval <= 0) {
-        std::cerr << "interval must be positive integer" << std::endl;
+      if (interval < 0) {
+        std::cerr << "interval must be non-negative integer" << std::endl;
         return 1;
       }
       break;
