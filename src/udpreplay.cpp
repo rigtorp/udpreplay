@@ -222,14 +222,22 @@ int main(int argc, char *argv[]) {
         }
       }
 
+#ifdef __GLIBC__
+      ssize_t len = ntohs(udp->len) - 8;
+#else
       ssize_t len = ntohs(udp->uh_ulen) - 8;
+#endif
       const u_char *d =
           &p[sizeof(ether_header) + ip->ip_hl * 4 + sizeof(udphdr)];
 
       sockaddr_in addr;
       memset(&addr, 0, sizeof(addr));
       addr.sin_family = AF_INET;
+#ifdef __GLIBC__
+      addr.sin_port = udp->dest;
+#else
       addr.sin_port = udp->uh_dport;
+#endif
       addr.sin_addr = {ip->ip_dst};
       auto n = sendto(fd, d, len, 0, reinterpret_cast<sockaddr *>(&addr),
                       sizeof(addr));
