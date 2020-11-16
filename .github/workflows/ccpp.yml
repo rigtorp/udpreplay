@@ -1,6 +1,6 @@
 name: C/C++ CI
 
-on: [push]
+on: [push, workflow_dispatch]
 
 jobs:
   build-ubuntu:
@@ -9,11 +9,24 @@ jobs:
     
     steps:
     - uses: actions/checkout@v1
-    - name: install required packages
-      run: sudo apt install libpcap-dev expect
-    - name: configure
-      run: mkdir build && cd build && cmake -DCMAKE_CXX_FLAGS="-Werror" ..
-    - name: build
-      run: cmake --build build
-    - name: test
-      run: cd build && ctest
+    - name: Build & Test
+      run: |
+        cmake -E remove_directory build
+        cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-Werror -O2 -fsanitize=address,undefined"
+        cmake --build build
+        cd build
+        ctest --output-on-failure
+        
+  build-macos:
+
+    runs-on: macOS-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Build & Test
+      run: |
+        cmake -E remove_directory build
+        cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-Werror -O2 -fsanitize=address,undefined"
+        cmake --build build
+        cd build
+        ctest --output-on-failure
