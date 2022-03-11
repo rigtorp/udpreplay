@@ -239,6 +239,9 @@ int main(int argc, char *argv[]) {
       addr.sin_port = udp->uh_dport;
 #endif
       addr.sin_addr = {ip->ip_dst};
+      if(broadcast != 0){
+        addr.sin_addr.s_addr = INADDR_BROADCAST;
+      }
       auto n = sendto(fd, d, len, 0, reinterpret_cast<sockaddr *>(&addr),
                       sizeof(addr));
       if (n != len) {
