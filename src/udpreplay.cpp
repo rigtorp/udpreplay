@@ -13,6 +13,7 @@
 
 #define NANOSECONDS_PER_SECOND 1000000000L
 
+
 int main(int argc, char *argv[]) {
 
   int ifindex = 0;
@@ -22,9 +23,10 @@ int main(int argc, char *argv[]) {
   int repeat = 1;
   int ttl = -1;
   int broadcast = 0;
-
+  in_addr_t new_ip{};
+  
   int opt;
-  while ((opt = getopt(argc, argv, "i:bls:c:r:t:")) != -1) {
+  while ((opt = getopt(argc, argv, "i:bls:c:r:t:d:")) != -1) {
     switch (opt) {
     case 'i':
       ifindex = if_nametoindex(optarg);
@@ -66,6 +68,13 @@ int main(int argc, char *argv[]) {
     case 'b':
       broadcast = 1;
       break;
+    case 'd':
+      new_ip = inet_addr(optarg);
+      if (new_ip == (in_addr_t)(-1)) {
+        std::cerr << "ip address must be x.x.x.x" << std::endl;
+        return 1;
+      }
+      break;
     default:
       goto usage;
     }
@@ -86,6 +95,7 @@ int main(int argc, char *argv[]) {
            "  -s speed    replay speed relative to pcap timestamps\n"
            "  -t ttl      packet ttl\n"
            "  -b          enable broadcast (SO_BROADCAST)"
+		   "  -d ip       replace destination ip"
         << std::endl;
     return 1;
   }
@@ -180,6 +190,10 @@ int main(int argc, char *argv[]) {
       }
       if (ip->ip_p != IPPROTO_UDP) {
         continue;
+      }
+	  if(new_ip)
+      {
+        const_cast<struct ip *>(ip)->ip_dst.s_addr = new_ip;
       }
       auto udp = reinterpret_cast<const udphdr *>(p + sizeof(ether_header) +
                                                   ip->ip_hl * 4);
