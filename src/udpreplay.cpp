@@ -13,6 +13,23 @@
 
 #define NANOSECONDS_PER_SECOND 1000000000L
 
+/**
+ * @fn timespec_diff(struct timespec *, struct timespec *, struct timespec *)
+ * @brief Compute the diff of two timespecs, that is a - b = result.
+ * @param a the minuend
+ * @param b the subtrahend
+ * @param result a - b
+ */
+static inline void timespec_diff(struct timespec *a, struct timespec *b,
+  struct timespec *result) {
+  result->tv_sec  = a->tv_sec  - b->tv_sec;
+  result->tv_nsec = a->tv_nsec - b->tv_nsec;
+  if (result->tv_nsec < 0) {
+    --result->tv_sec;
+    result->tv_nsec += 1000000000L;
+  }
+}
+
 int main(int argc, char *argv[]) {
 
   int ifindex = 0;
@@ -215,8 +232,14 @@ int main(int argc, char *argv[]) {
 
       if (deadline.tv_sec > now.tv_sec ||
           (deadline.tv_sec == now.tv_sec && deadline.tv_nsec > now.tv_nsec)) {
+#ifdef __APPLE__
+        timespec duration = {-1, -1};
+        timespec_diff(&deadline, &now, &duration);
+        if (nanosleep(&duration, nullptr) == -1) {
+#else
         if (clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &deadline,
                             nullptr) == -1) {
+#endif
           std::cerr << "clock_nanosleep: " << strerror(errno) << std::endl;
           return 1;
         }
