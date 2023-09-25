@@ -215,11 +215,25 @@ int main(int argc, char *argv[]) {
 
       if (deadline.tv_sec > now.tv_sec ||
           (deadline.tv_sec == now.tv_sec && deadline.tv_nsec > now.tv_nsec)) {
+#if _POSIX_C_SOURCE >= 200112L
         if (clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &deadline,
                             nullptr) == -1) {
           std::cerr << "clock_nanosleep: " << strerror(errno) << std::endl;
           return 1;
         }
+#else
+        timespec duration;
+        duration.tv_sec = deadline.tv_sec - now.tv_sec;
+        duration.tv_nsec = deadline.tv_nsec - now.tv_nsec;
+        if (duration.tv_nsec < 0) {
+          --duration.tv_sec;
+          duration.tv_nsec += NANOSECONDS_PER_SECOND;
+        }
+        if (nanosleep(&duration, nullptr) == -1) {
+          std::cerr << "nanosleep: " << strerror(errno) << std::endl;
+          return 1;
+        }
+#endif
       }
 
 #ifdef __GLIBC__
