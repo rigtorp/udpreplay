@@ -9,6 +9,8 @@ jobs:
     
     steps:
     - uses: actions/checkout@v1
+    - name: Install expect and libpcap
+      run: sudo apt install expect libpcap-dev
     - name: Build & Test
       run: |
         cmake -E remove_directory build
