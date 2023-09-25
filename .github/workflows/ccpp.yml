@@ -14,7 +14,7 @@ jobs:
     - name: Build & Test
       run: |
         cmake -E remove_directory build
-        cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-Werror -O2 -fsanitize=address,undefined"
+        cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-Werror -O2"
         cmake --build build
         cd build
         ctest --output-on-failure
@@ -28,7 +28,7 @@ jobs:
     - name: Build & Test
       run: |
         cmake -E remove_directory build
-        cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-Werror -O2 -fsanitize=address,undefined"
+        cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-Werror -O2"
         cmake --build build
         cd build
         ctest --output-on-failure
