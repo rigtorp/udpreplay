@@ -109,7 +109,9 @@ int main(int argc, char *argv[]) {
            "  -r repeat   number of times to loop data (-1 for infinite loop)\n"
            "  -s speed    replay speed relative to pcap timestamps\n"
            "  -t ttl      packet ttl\n"
-           "  -b          enable broadcast (SO_BROADCAST)"
+           "  -b          enable broadcast (SO_BROADCAST)\n"
+           "  -d ip       destination ip address\n"
+           "  -p port     destination port number"
         << std::endl;
     return 1;
   }
