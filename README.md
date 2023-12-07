@@ -18,6 +18,8 @@ usage: udpreplay [-i iface] [-l] [-s speed] [-c millisec] [-r repeat] [-t ttl] p
   -s speed    replay speed relative to pcap timestamps
   -t ttl      packet ttl
   -b          enable broadcast (SO_BROADCAST)
+  -d ip       destination ip address
+  -p port     destination port number  
 ```
 
 ## Example
