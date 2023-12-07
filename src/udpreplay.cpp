@@ -23,8 +23,13 @@ int main(int argc, char *argv[]) {
   int ttl = -1;
   int broadcast = 0;
 
+  sockaddr_in dest_addr;
+  memset(&dest_addr, 0, sizeof(dest_addr));
+  dest_addr.sin_family = AF_INET;
+
   int opt;
-  while ((opt = getopt(argc, argv, "i:bls:c:r:t:")) != -1) {
+
+  while ((opt = getopt(argc, argv, "i:bls:c:r:t:d:p:")) != -1) {
     switch (opt) {
     case 'i':
       ifindex = if_nametoindex(optarg);
@@ -63,6 +68,25 @@ int main(int argc, char *argv[]) {
         return 1;
       }
       break;
+    case 'd':
+      // convert string to sockaddr_in 
+      dest_addr.sin_addr.s_addr = inet_addr(optarg);
+      if (dest_addr.sin_addr.s_addr == INADDR_NONE) {
+        std::cerr << "Invalid IP address" << std::endl;
+        return 1;
+      }
+      break;
+    case 'p':
+    {
+      // convert string to port number
+      int port = atoi(optarg);
+      if (port < 0 || port > 65535) {
+        std::cerr << "Invalid port number" << std::endl;
+        return 1;
+      }
+      dest_addr.sin_port = htons(atoi(optarg));
+      break;
+    }
     case 'b':
       broadcast = 1;
       break;
@@ -247,14 +271,22 @@ int main(int argc, char *argv[]) {
       sockaddr_in addr;
       memset(&addr, 0, sizeof(addr));
       addr.sin_family = AF_INET;
-#ifdef __GLIBC__
-      addr.sin_port = udp->dest;
+      if (dest_addr.sin_port != 0) {
+        addr.sin_port = dest_addr.sin_port;
+      } else {
+#ifdef __GLIBC__        
+        addr.sin_port = udp->dest;
 #else
-      addr.sin_port = udp->uh_dport;
+        addr.sin_port = udp->uh_dport;  
 #endif
-      addr.sin_addr = {ip->ip_dst};
-      auto n = sendto(fd, d, len, 0, reinterpret_cast<sockaddr *>(&addr),
-                      sizeof(addr));
+      }
+
+      if (dest_addr.sin_addr.s_addr != 0) {
+        addr.sin_addr = dest_addr.sin_addr;
+      } else {
+        addr.sin_addr = {ip->ip_dst};
+      }
+      auto n = sendto(fd, d, len, 0, reinterpret_cast<sockaddr *>(&addr), sizeof(addr));
       if (n != len) {
         std::cerr << "sendto: " << strerror(errno) << std::endl;
         return 1;
