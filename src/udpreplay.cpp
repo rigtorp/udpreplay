@@ -9,6 +9,7 @@
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 #include <pcap/pcap.h>
+#include <pcap/sll.h>
 #include <unistd.h>
 
 #define NANOSECONDS_PER_SECOND 1000000000L
@@ -146,6 +147,16 @@ int main(int argc, char *argv[]) {
       return 1;
     }
 
+    int link_hdr_type = pcap_datalink(handle);
+    if ( DLT_NULL != link_hdr_type &&        // loopback
+         DLT_EN10MB != link_hdr_type &&      // Ethernet
+         DLT_LINUX_SLL != link_hdr_type ) {  // Linux cooked sockets
+        const char *dltname = pcap_datalink_val_to_name(link_hdr_type);
+        std::cerr << "unsupport link-layer type: " << link_hdr_type << "("
+                  << (dltname ? dltname : "") << ")" << std::endl;
+        return 1;
+    }
+
     timespec start = {-1, -1};
     timespec pcap_start = {-1, -1};
 
@@ -164,25 +175,48 @@ int main(int argc, char *argv[]) {
       if (header.len != header.caplen) {
         continue;
       }
-      auto eth = reinterpret_cast<const ether_header *>(p);
 
-      // jump over and ignore vlan tags
-      while (ntohs(eth->ether_type) == ETHERTYPE_VLAN) {
-        p += 4;
-        eth = reinterpret_cast<const ether_header *>(p);
+      const struct ip *ip;
+      if ( DLT_NULL == link_hdr_type ) {
+          int falimy = *reinterpret_cast<const uint32_t *>(p);
+          if ( PF_INET != falimy ) { // IP
+              continue;
+          }
+          p += 4;
+          ip = reinterpret_cast<const struct ip *>(p);
+      } else if ( DLT_EN10MB == link_hdr_type ) {
+          const ether_header *eth;
+          eth = reinterpret_cast<const ether_header *>(p);
+          // jump over and ignore vlan tags
+          while ( ETHERTYPE_VLAN == ntohs(eth->ether_type) ) {
+              p += 4;
+              eth = reinterpret_cast<const ether_header *>(p);
+          }
+          if ( ETHERTYPE_IP != ntohs(eth->ether_type) ) {
+              continue;
+          }
+          p += sizeof(ether_header);
+          ip = reinterpret_cast<const struct ip *>(p);
+      } else if ( DLT_LINUX_SLL == link_hdr_type ) {
+          // ref: http://www.tcpdump.org/linktypes/LINKTYPE_LINUX_SLL.html
+          const struct sll_header *sll = reinterpret_cast<const sll_header *>(p);
+          if ( ETHERTYPE_IP != ntohs(sll->sll_protocol) ) {
+              continue;
+          }
+          p += sizeof(struct sll_header);
+          ip = reinterpret_cast<const struct ip *>(p);
+      } else {
+          std::cerr << "unsupport link-layer type: " << link_hdr_type << std::endl;
+          return 1;
       }
-      if (ntohs(eth->ether_type) != ETHERTYPE_IP) {
-        continue;
+      if ( 4 != ip->ip_v ) {
+          continue;
       }
-      auto ip = reinterpret_cast<const struct ip *>(p + sizeof(ether_header));
-      if (ip->ip_v != 4) {
-        continue;
+      if ( IPPROTO_UDP != ip->ip_p ) {
+          continue;
       }
-      if (ip->ip_p != IPPROTO_UDP) {
-        continue;
-      }
-      auto udp = reinterpret_cast<const udphdr *>(p + sizeof(ether_header) +
-                                                  ip->ip_hl * 4);
+      p += ip->ip_hl * 4;
+      auto udp = reinterpret_cast<const udphdr *>(p);
       if (interval != -1) {
         // Use constant packet rate
         deadline.tv_sec += interval / 1000L;
@@ -241,8 +275,7 @@ int main(int argc, char *argv[]) {
 #else
       ssize_t len = ntohs(udp->uh_ulen) - 8;
 #endif
-      const u_char *d =
-          &p[sizeof(ether_header) + ip->ip_hl * 4 + sizeof(udphdr)];
+      const u_char *d = p + sizeof(udphdr);
 
       sockaddr_in addr;
       memset(&addr, 0, sizeof(addr));
