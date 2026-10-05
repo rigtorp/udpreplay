@@ -136,6 +136,8 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  timespec start = {-1, -1};
+
   for (int i = 0; repeat == -1 || i < repeat; i++) {
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t *handle = pcap_open_offline_with_tstamp_precision(
@@ -152,8 +154,8 @@ int main(int argc, char *argv[]) {
       return 1;
     };
 
-    timespec start = {-1, -1};
     timespec pcap_start = {-1, -1};
+    int64_t last_delta = 0;
 
     pcap_pkthdr *packet_header;
     const u_char *p;
@@ -165,6 +167,8 @@ int main(int argc, char *argv[]) {
           std::cerr << "clock_gettime: " << strerror(errno) << std::endl;
           return 1;
         }
+      }
+      if (pcap_start.tv_nsec == -1) {
         pcap_start.tv_sec = header.ts.tv_sec;
         pcap_start.tv_nsec =
             header.ts.tv_usec; // Note PCAP_TSTAMP_PRECISION_NANO
@@ -245,6 +249,7 @@ int main(int argc, char *argv[]) {
         if (speed != 1.0) {
           delta *= speed;
         }
+        last_delta = delta;
         deadline = start;
         deadline.tv_sec += delta / NANOSECONDS_PER_SECOND;
         deadline.tv_nsec += delta % NANOSECONDS_PER_SECOND;
@@ -264,7 +269,7 @@ int main(int argc, char *argv[]) {
 
       if (deadline.tv_sec > now.tv_sec ||
           (deadline.tv_sec == now.tv_sec && deadline.tv_nsec > now.tv_nsec)) {
-#if _POSIX_C_SOURCE >= 200112L
+#if _POSIX_C_SOURCE >= 200112L && !defined(__APPLE__)
         if (clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &deadline,
                             nullptr) == -1) {
           std::cerr << "clock_nanosleep: " << strerror(errno) << std::endl;
@@ -308,6 +313,15 @@ int main(int argc, char *argv[]) {
       return 1;
     }
     pcap_close(handle);
+
+    if (interval == -1 && start.tv_nsec != -1) {
+      start.tv_sec += last_delta / NANOSECONDS_PER_SECOND;
+      start.tv_nsec += last_delta % NANOSECONDS_PER_SECOND;
+      if (start.tv_nsec >= NANOSECONDS_PER_SECOND) {
+        start.tv_sec++;
+        start.tv_nsec -= NANOSECONDS_PER_SECOND;
+      }
+    }
   }
 
   return 0;

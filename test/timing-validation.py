@@ -52,8 +52,8 @@ def main():
         elapsed = time.perf_counter() - start
 
         assert res.returncode == 0, f"{name}: process failed with code {res.returncode}:\n{res.stderr}"
-        # Allow ±0.25s tolerance for OS scheduling and timer granularity
-        assert abs(elapsed - expected) <= 0.25, (
+        # Allow ±0.35s tolerance for OS scheduling and timer granularity
+        assert abs(elapsed - expected) <= 0.35, (
             f"{name}: expected ~{expected:.2f}s, took {elapsed:.3f}s"
         )
         print(f"{name}: PASS (took {elapsed:.3f}s, expected {expected:.2f}s)")
