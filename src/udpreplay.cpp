@@ -146,12 +146,20 @@ int main(int argc, char *argv[]) {
       return 1;
     }
 
+    auto packet_error = [&](const char *message) {
+      std::cerr << message << std::endl;
+      pcap_close(handle);
+      return 1;
+    };
+
     timespec start = {-1, -1};
     timespec pcap_start = {-1, -1};
 
-    pcap_pkthdr header;
+    pcap_pkthdr *packet_header;
     const u_char *p;
-    while ((p = pcap_next(handle, &header))) {
+    int packet_status;
+    while ((packet_status = pcap_next_ex(handle, &packet_header, &p)) == 1) {
+      const auto &header = *packet_header;
       if (start.tv_nsec == -1) {
         if (clock_gettime(CLOCK_MONOTONIC, &start) == -1) {
           std::cerr << "clock_gettime: " << strerror(errno) << std::endl;
@@ -162,27 +170,68 @@ int main(int argc, char *argv[]) {
             header.ts.tv_usec; // Note PCAP_TSTAMP_PRECISION_NANO
       }
       if (header.len != header.caplen) {
-        continue;
+        return packet_error("Invalid packet: captured and original lengths differ");
       }
-      auto eth = reinterpret_cast<const ether_header *>(p);
+      if (header.caplen < sizeof(ether_header)) {
+        return packet_error("Invalid packet: truncated Ethernet header");
+      }
+      ether_header eth;
+      memcpy(&eth, p, sizeof(eth));
+      size_t offset = sizeof(eth);
+      auto protocol = ntohs(eth.ether_type);
 
-      // jump over and ignore vlan tags
-      while (ntohs(eth->ether_type) == ETHERTYPE_VLAN) {
-        p += 4;
-        eth = reinterpret_cast<const ether_header *>(p);
+      // Jump over VLAN tags, checking each tag before reading its protocol.
+      while (protocol == ETHERTYPE_VLAN) {
+        if (header.caplen - offset < 4) {
+          return packet_error("Invalid packet: truncated VLAN header");
+        }
+        uint16_t encapsulated_protocol;
+        memcpy(&encapsulated_protocol, p + offset + 2,
+               sizeof(encapsulated_protocol));
+        protocol = ntohs(encapsulated_protocol);
+        offset += 4;
       }
-      if (ntohs(eth->ether_type) != ETHERTYPE_IP) {
+      if (protocol != ETHERTYPE_IP) {
         continue;
       }
-      auto ip = reinterpret_cast<const struct ip *>(p + sizeof(ether_header));
-      if (ip->ip_v != 4) {
+      if (header.caplen - offset < sizeof(struct ip)) {
+        return packet_error("Invalid packet: truncated IPv4 header");
+      }
+      // Ethernet payloads need not be aligned for native IP/UDP structs.
+      struct ip ip;
+      memcpy(&ip, p + offset, sizeof(ip));
+      if (ip.ip_v != 4) {
         continue;
       }
-      if (ip->ip_p != IPPROTO_UDP) {
+      const size_t ip_header_length = ip.ip_hl * 4;
+      const size_t ip_length = ntohs(ip.ip_len);
+      if (ip_header_length < sizeof(ip) ||
+          ip_header_length > header.caplen - offset ||
+          ip_length < ip_header_length || ip_length > header.caplen - offset) {
+        return packet_error("Invalid packet: invalid IPv4 length");
+      }
+      if (ip.ip_p != IPPROTO_UDP) {
         continue;
       }
-      auto udp = reinterpret_cast<const udphdr *>(p + sizeof(ether_header) +
-                                                  ip->ip_hl * 4);
+      if (ntohs(ip.ip_off) & (IP_MF | IP_OFFMASK)) {
+        return packet_error("IPv4 fragments are not supported; reassemble the "
+                            "capture before replay");
+      }
+      if (ip_length - ip_header_length < sizeof(udphdr)) {
+        return packet_error("Invalid packet: truncated UDP header");
+      }
+      udphdr udp;
+      memcpy(&udp, p + offset + ip_header_length, sizeof(udp));
+#ifdef __GLIBC__
+      const size_t udp_length = ntohs(udp.len);
+#else
+      const size_t udp_length = ntohs(udp.uh_ulen);
+#endif
+      if (udp_length < sizeof(udp) || udp_length > ip_length - ip_header_length) {
+        return packet_error("Invalid packet: invalid UDP length");
+      }
+      const ssize_t len = udp_length - sizeof(udp);
+      const u_char *d = p + offset + ip_header_length + sizeof(udp);
       if (interval != -1) {
         // Use constant packet rate
         deadline.tv_sec += interval / 1000L;
@@ -236,23 +285,15 @@ int main(int argc, char *argv[]) {
 #endif
       }
 
-#ifdef __GLIBC__
-      ssize_t len = ntohs(udp->len) - 8;
-#else
-      ssize_t len = ntohs(udp->uh_ulen) - 8;
-#endif
-      const u_char *d =
-          &p[sizeof(ether_header) + ip->ip_hl * 4 + sizeof(udphdr)];
-
       sockaddr_in addr;
       memset(&addr, 0, sizeof(addr));
       addr.sin_family = AF_INET;
 #ifdef __GLIBC__
-      addr.sin_port = udp->dest;
+      addr.sin_port = udp.dest;
 #else
-      addr.sin_port = udp->uh_dport;
+      addr.sin_port = udp.uh_dport;
 #endif
-      addr.sin_addr = {ip->ip_dst};
+      addr.sin_addr = ip.ip_dst;
       auto n = sendto(fd, d, len, 0, reinterpret_cast<sockaddr *>(&addr),
                       sizeof(addr));
       if (n != len) {
@@ -261,6 +302,11 @@ int main(int argc, char *argv[]) {
       }
     }
 
+    if (packet_status == -1) {
+      std::cerr << "pcap_read: " << pcap_geterr(handle) << std::endl;
+      pcap_close(handle);
+      return 1;
+    }
     pcap_close(handle);
   }
 
