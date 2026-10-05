@@ -28,34 +28,22 @@ $ udpreplay -i eth0 example.pcap
 
 ## Building & Installing
 
-*udpreplay* requires [CMake](https://cmake.org/) 3.5 or higher,  
-g++ and libpcap-dev to build and install.
+Requires Linux or macOS, CMake 3.20+, a C++11 compiler, and libpcap headers
+and libraries. On macOS, install the Xcode Command Line Tools and run
+`brew install cmake libpcap`.
 
-Building on Debian/Ubuntu:
-
-```
-sudo apt install cmake libpcap-dev g++
-cd udpreplay
-mkdir build && cd build
-cmake ..
-make
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+cmake --install build --config Release --prefix "$HOME/.local"
 ```
 
-Building on RHEL/CentOS:
+The executable is installed in `$HOME/.local/bin`. For libpcap in a custom
+location, add `-DCMAKE_PREFIX_PATH=/path/to/libpcap` when configuring.
 
-```
-sudo yum install cmake3 libpcap-devel gcc-c++
-cd udpreplay
-mkdir build && cd build
-cmake3 ..
-make
-```
-
-Installing:
-
-```
-$ sudo make install
-```
+Linux timing tests are enabled by default when Expect is installed. Run them
+with `ctest --test-dir build --output-on-failure`, or disable them with
+`-DBUILD_TESTING=OFF` when configuring.
 
 ## About
 

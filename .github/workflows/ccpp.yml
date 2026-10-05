@@ -1,36 +1,81 @@
 name: C/C++ CI
 
-on: [push, workflow_dispatch]
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build-ubuntu:
-
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux GCC
+            os: ubuntu-24.04
+            compiler: g++
+            build_type: Release
+            testing: 'ON'
+          - name: Linux Clang
+            os: ubuntu-24.04
+            compiler: clang++
+            build_type: Debug
+            testing: 'ON'
+          - name: macOS Clang
+            os: macos-15
+            compiler: clang++
+            build_type: Release
+            testing: 'OFF'
+    env:
+      CXX: ${{ matrix.compiler }}
+      BUILD_TYPE: ${{ matrix.build_type }}
+      ENABLE_TESTING: ${{ matrix.testing }}
+    defaults:
+      run:
+        shell: bash
     steps:
-    - uses: actions/checkout@v1
-    - name: Install expect and libpcap
-      run: sudo apt install expect libpcap-dev
-    - name: Build & Test
-      run: |
-        cmake -E remove_directory build
-        cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-Werror -O2"
-        cmake --build build
-        cd build
-        ctest --output-on-failure
-        
-  build-macos:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libpcap-dev expect time
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install libpcap
+      - name: Configure
+        run: >-
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
+          -DBUILD_TESTING="$ENABLE_TESTING"
+          -DUDPREPLAY_WARNINGS_AS_ERRORS=ON
+      - name: Build
+        run: cmake --build build --config "$BUILD_TYPE" --parallel 2
+      - name: Test
+        if: runner.os == 'Linux'
+        run: ctest --test-dir build -C "$BUILD_TYPE" --output-on-failure
+      - name: Install
+        run: cmake --install build --config "$BUILD_TYPE" --prefix "$RUNNER_TEMP/udpreplay-install"
+      - name: Check installed executable
+        run: |
+          python3 - "$RUNNER_TEMP/udpreplay-install/bin/udpreplay" <<'PY'
+          import subprocess
+          import sys
 
-    runs-on: macOS-latest
-    timeout-minutes: 5
-
-    steps:
-    - uses: actions/checkout@v1
-    - name: Build & Test
-      run: |
-        cmake -E remove_directory build
-        cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-Werror -O2"
-        cmake --build build
-        #cd build
-        #ctest --output-on-failure
+          result = subprocess.run([sys.argv[1]], capture_output=True, text=True)
+          assert result.returncode == 1, result
+          assert "usage: udpreplay" in result.stderr, result.stderr
+          PY
