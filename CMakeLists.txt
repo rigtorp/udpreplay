@@ -7,13 +7,11 @@ endif()
 
 option(UDPREPLAY_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 set(_testing_default OFF)
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  find_program(EXPECT_EXECUTABLE NAMES expect)
-  if(EXPECT_EXECUTABLE)
-    set(_testing_default ON)
-  endif()
+find_package(Python3 COMPONENTS Interpreter QUIET)
+if(Python3_Interpreter_FOUND)
+  set(_testing_default ON)
 endif()
-option(BUILD_TESTING "Enable packet tests and Linux timing tests" ${_testing_default})
+option(BUILD_TESTING "Enable packet and timing tests" ${_testing_default})
 
 # Homebrew's keg-only libpcap is not on the default compiler search path.
 set(_pcap_prefixes)
@@ -59,18 +57,13 @@ if(BUILD_TESTING)
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test/packet-validation.py"
       "$<TARGET_FILE:udpreplay>")
   set_tests_properties(packet-validation PROPERTIES TIMEOUT 30)
-endif()
-if(BUILD_TESTING AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  find_program(EXPECT_EXECUTABLE NAMES expect REQUIRED)
-  find_program(TIME_EXECUTABLE NAMES time REQUIRED)
+
   foreach(test IN ITEMS constant-interval constant-interval-ge1 high-speed
                         low-speed normal-speed)
     add_test(NAME ${test}
-      COMMAND "${EXPECT_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test/${test}.expect"
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test/timing-validation.py"
         "$<TARGET_FILE:udpreplay>" "${CMAKE_CURRENT_SOURCE_DIR}/test/test.pcap"
-        "${TIME_EXECUTABLE}")
+        "${test}")
     set_tests_properties(${test} PROPERTIES TIMEOUT 20)
   endforeach()
-elseif(BUILD_TESTING)
-  message(STATUS "Timing tests are only available on Linux")
 endif()

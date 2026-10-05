@@ -50,11 +50,9 @@ cmake --install build --config Release --prefix "$HOME/.local"
 The executable is installed in `$HOME/.local/bin`. For libpcap in a custom
 location, add `-DCMAKE_PREFIX_PATH=/path/to/libpcap` when configuring.
 
-Linux timing tests are enabled by default when Expect is installed. Run them
-with `ctest --test-dir build --output-on-failure`, or disable them with
+Testing requires Python 3 and is enabled by default. Run tests with
+`ctest --test-dir build --output-on-failure`, or disable them with
 `-DBUILD_TESTING=OFF` when configuring.
-Tests also require Python 3 for packet validation; on macOS, enable them with
-`-DBUILD_TESTING=ON`.
 
 ## About
 
