@@ -13,7 +13,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(_testing_default ON)
   endif()
 endif()
-option(BUILD_TESTING "Enable Linux timing tests (requires Expect)" ${_testing_default})
+option(BUILD_TESTING "Enable packet tests and Linux timing tests" ${_testing_default})
 
 # Homebrew's keg-only libpcap is not on the default compiler search path.
 set(_pcap_prefixes)
@@ -53,6 +53,13 @@ include(GNUInstallDirs)
 install(TARGETS udpreplay RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 
 include(CTest)
+if(BUILD_TESTING)
+  find_package(Python3 COMPONENTS Interpreter REQUIRED)
+  add_test(NAME packet-validation
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test/packet-validation.py"
+      "$<TARGET_FILE:udpreplay>")
+  set_tests_properties(packet-validation PROPERTIES TIMEOUT 30)
+endif()
 if(BUILD_TESTING AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
   find_program(EXPECT_EXECUTABLE NAMES expect REQUIRED)
   find_program(TIME_EXECUTABLE NAMES time REQUIRED)

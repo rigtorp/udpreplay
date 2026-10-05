@@ -36,7 +36,7 @@ jobs:
             os: macos-15
             compiler: clang++
             build_type: Release
-            testing: 'OFF'
+            testing: 'ON'
     env:
       CXX: ${{ matrix.compiler }}
       BUILD_TYPE: ${{ matrix.build_type }}
@@ -65,7 +65,6 @@ jobs:
       - name: Build
         run: cmake --build build --config "$BUILD_TYPE" --parallel 2
       - name: Test
-        if: runner.os == 'Linux'
         run: ctest --test-dir build -C "$BUILD_TYPE" --output-on-failure
       - name: Install
         run: cmake --install build --config "$BUILD_TYPE" --prefix "$RUNNER_TEMP/udpreplay-install"

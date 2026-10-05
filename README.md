@@ -26,6 +26,15 @@ usage: udpreplay [-i iface] [-l] [-s speed] [-c millisec] [-r repeat] [-t ttl] p
 $ udpreplay -i eth0 example.pcap
 ```
 
+IPv4 fragments and invalid packet lengths stop replay with an error.
+Reassemble fragmented captures first, for example with
+[IPDefragUtil](https://github.com/seladb/PcapPlusPlus/tree/master/Examples/IPDefragUtil):
+
+```sh
+IPDefragUtil input.pcap -o reassembled.pcap -a
+udpreplay reassembled.pcap
+```
+
 ## Building & Installing
 
 Requires Linux or macOS, CMake 3.20+, a C++11 compiler, and libpcap headers
@@ -44,6 +53,8 @@ location, add `-DCMAKE_PREFIX_PATH=/path/to/libpcap` when configuring.
 Linux timing tests are enabled by default when Expect is installed. Run them
 with `ctest --test-dir build --output-on-failure`, or disable them with
 `-DBUILD_TESTING=OFF` when configuring.
+Tests also require Python 3 for packet validation; on macOS, enable them with
+`-DBUILD_TESTING=ON`.
 
 ## About
 
